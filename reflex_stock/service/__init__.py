@@ -1,0 +1,1 @@
+from .stocks_page import stocks_page
