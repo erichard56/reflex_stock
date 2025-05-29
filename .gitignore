@@ -3,7 +3,6 @@
 __pycache__/
 .states
 assets/external/
-*.db
 Otros/*
 venv
 .db_reflex
