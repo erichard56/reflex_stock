@@ -23,12 +23,25 @@ def producto_select_by_id(id: int):
 	producto = cursor.fetchone()
 	return(producto[0])
 
+def productos_select(text: str):
+	conn, cursor = connect()
+	q1 = 'SELECT * FROM productos WHERE producto like "%' + text + '%" ORDER BY producto'
+	cursor.execute(q1)
+	productos = cursor.fetchall()
+	return(productos)
+
 def stocks_select_all(id_producto: int):
 	lapso = datetime.datetime.now().year * 12 + datetime.datetime.now().month
 	conn, cursor = connect()
-	q1 = 'SELECT id, cantidad, id_producto, concat(mes, "-", anio), anio * 12 + mes - ' + str(lapso)  + \
-		' as falta FROM stocks WHERE id_producto = ' + str(id_producto) + ' ORDER BY falta'
-	cursor.execute(q1)
+	q1 = 'SELECT id, cantidad, id_producto, ' + \
+			' concat(mes, "-", anio), anio * 12 + mes - ' + str(lapso)  + ' AS falta, ' + \
+			' CASE ' + \
+				' WHEN anio * 12 + mes - 24305 <= 0 THEN "red" ' + \
+				' WHEN anio * 12 + mes - 24305 <= 2 THEN "orange" ' + \
+				' ELSE "green" ' + \
+				' END AS color ' + \
+			' FROM stocks WHERE id_producto = ' + str(id_producto) + ' ORDER BY falta'
+	cursor.execute(q1) 
 	stocks = cursor.fetchall()
 	return(stocks)
 

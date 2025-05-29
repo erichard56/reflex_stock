@@ -1,46 +1,81 @@
 import reflex as rx
 from ..model.stocks_model import Producto, Stock, StockLapso
 from .stocks_service import letras_select_all_service, productos_select_all_service, stocks_select_all_service, \
-			producto_select_by_id_service, \
+			producto_select_by_id_service, productos_select_service, \
 			delete_stock_service, decrementar_stock_service, incrementar_stock_service, agregar_stock_service
-# from .notify import notify_component
+from .notify import notify_component
 import asyncio
 import datetime
 
-meses = [ 'filler',
-		  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-		  'Julio', 'Agosto', 'Septiembre', 'Noviembre', 'Diciembre' ]
+def chkCantidad(cantidad):
+	try:
+		n = int(cantidad)
+		if (n > 0):
+			return(n)
+		else:
+			return('Cantidad debe ser mayor que 0')
+	except:
+		return('Cantidad debe ser numerico')
+
+def chkVencimiento(vencimiento):
+	vencimiento = vencimiento.replace('/', '-')
+	if (vencimiento.find('-') > 0):
+		m, a = vencimiento.split('-')
+		try:
+			mes = int(m)
+			if (1 <= mes <= 12):
+				try:
+					anio = int(a)
+					if (anio < 100):
+						anio += 2000
+						vencimiento = '-'.join([str(mes), str(anio)]) 
+						return(mes, anio)
+				except:
+					return('Año fuera de rango', '')	# anio esta fuera de rango
+			else:
+				return('Mes debe estar entre 1 y 12', '')	# mes esta fuera de rango
+		except:
+			return('El mes debe ser numérico', '')	# mes no es numerico
+	else:
+		return('Debe ser algo de la forma mm/aaaa', '')	# falta el separador
+
+
 class StockState(rx.State):
 	letras: list[tuple]
+	letra: str
 	productos: list[tuple[Producto]]
 	stocks: list[tuple[StockLapso]]
 	producto: str = ''
-	cantidad: str = '1'
-	mes: str = meses[datetime.date.today().month]
-	anio: str = str(datetime.date.today().year)
-	# user_buscar: str
-	# error: str = ''
+	id_producto: int = 0
+	cantidad: str = 0
+	vencimiento: str = ''
+	producto_buscar: str
+	error: str = ''
 
 	@rx.event(background=True)
 	async def get_all_letras(self):
 		async with self:
 			self.letras = letras_select_all_service()
-			self.productos = productos_select_all_service(self.letras[0][0])
-			self.producto = producto_select_by_id_service(self.productos[0][0])
-			self.stocks = stocks_select_all_service(self.productos[0][0])
+			self.letra = self.letras[0][0]
+			self.productos = productos_select_all_service(self.letra)
+			self.id_producto = self.productos[0][0]
+			self.producto = producto_select_by_id_service(self.id_producto)
+			self.stocks = stocks_select_all_service(self.id_producto)
 
 	@rx.event(background=True)
 	async def get_letra(self, letra):
 		async with self:
 			self.productos = productos_select_all_service(letra)
-			self.producto = producto_select_by_id_service(self.productos[0][0])
-			self.stocks = stocks_select_all_service(self.productos[0][0])
+			self.id_producto = self.productos[0][0]
+			self.producto = producto_select_by_id_service(self.id_producto)
+			self.stocks = stocks_select_all_service(self.id_producto)
 
 	@rx.event(background=True)
 	async def get_stock(self, id_producto):
 		async with self:
-			self.producto = producto_select_by_id_service(id_producto)
-			self.stocks = stocks_select_all_service(id_producto)
+			self.id_producto = id_producto
+			self.producto = producto_select_by_id_service(self.id_producto)
+			self.stocks = stocks_select_all_service(self.id_producto)
 
 	@rx.event(background=True)
 	async def delete_stock_by_id(self, id_stock, id_producto):
@@ -62,41 +97,51 @@ class StockState(rx.State):
 		self.cantidad = value
 
 	@rx.event()
-	def change_mes(self, value: str):
-		self.mes = value
+	def change_vencimiento(self, value: str):
+		self.vencimiento = value
+
+	@rx.event(background=True)
+	async def agregar_stock(self, id_producto):
+		async with self:
+			cantidad = chkCantidad(self.cantidad)
+			if (type(cantidad) == int):
+				mes, anio = chkVencimiento(self.vencimiento)
+				if (type(mes) == int):
+					agregar_stock_service(id_producto, cantidad, mes, anio)
+					self.stocks = stocks_select_all_service(id_producto)
+					self.cantidad = ''
+					self.vencimiento = ''
+				else:
+					self.error = mes
+			else:
+				self.error = cantidad
+
+		if (self.error != ''):
+			await self.handleNotify()
+
+	def buscar_on_change(self, value: str):
+		self.producto_buscar = value
+
+	def get_productos(self):
+		self.error = ''
+		self.productos = productos_select_service(self.producto_buscar)
+		if (len(self.productos) == 0):
+			self.error = 'No existen productos con esa busqueda'
+			self.productos = productos_select_all_service(self.letra)
+			self.producto = self.productos[0][1]
+		self.id_producto = self.productos[0][0]
+		self.stocks = stocks_select_all_service(self.id_producto)
 
 	@rx.event()
-	def change_anio(self, value: str):
-		self.anio = value
-
-	@rx.event()
-	def agregar_stock(self, id_producto):
-		imes = meses.index(self.mes) + 1
-		agregar_stock_service(id_producto, self.cantidad, imes, self.anio)
-		self.stocks = stocks_select_all_service(id_producto)
-
-	# @rx.event(background=True)
-	# async def agregar_stock(self): #, data: dict):
-		# pass
-		# async with self:
-		# 	pass
-		# 	try:
-		# 		self.users = create_user_service(username=data['username'], password=data['password'],
-		# 					phone=data['phone'], name=data['name'])
-		# 	except BaseException as be:
-		# 		print(be.args)
-		# 		self.error = be.args
-		# await self.handleNotify()
+	async def handleNotify(self):
+		async with self:
+			await asyncio.sleep(2)
+			self.error = ''
 
 	# @rx.event(background=True)
 	# async def get_user_by_email(self):
 	# 	async with self:
 	# 		self.users = select_user_by_email_service(self.user_buscar)
-
-	# async def handleNotify(self):
-	# 	async with self:
-	# 		await asyncio.sleep(2)
-	# 		self.error = ''
 
 	# @rx.event(background=True)
 	# async def create_user(self, data: dict):
@@ -121,32 +166,35 @@ class StockState(rx.State):
 @rx.page(route='/stocks', title='Stocs Vero', on_load=StockState.get_all_letras)
 def stocks_page() -> rx.Component:
 	return rx.flex(
-		rx.heading(
-			'Stocks Vero', 
-			align='center'
+		rx.hstack(
+			rx.heading(
+				'Stocks Vero', 
+				align='center',
+				style={'padding':'10px'}
+			),
+			justify='center',
 		),
 		rx.hstack(
-			rx.foreach(StockState.letras, row_letras)
+			rx.foreach(StockState.letras, row_letras),
+			justify = 'center',
+			style = {'margin_top':'5px'}
+		),
+		rx.hstack(
+			buscar_producto_component(),
+			justify = 'end',
 		),
 		rx.flex(
 			table_producto(),
 			table_stock(),
 		),
-		# rx.hstack(
-		# 	buscar_user_component(),
-		# 	create_user_dialogo_component(),
-		# 	justify = 'center',
-		# 	style = {'margin_top':'30px'}
-		# ),
-		# table_use(UserState.users),
-		# rx.cond(
-		# 	UserState.error != '',
-		# 	notify_component(
-		# 			UserState.error,
-		# 			'shield_alert',
-		# 			'yellow'
-		# 		),
-		# ),
+		rx.cond(
+			StockState.error != '',
+			notify_component(
+					StockState.error,
+					'shield_alert',
+					'yellow'
+				),
+		),
 		direction = 'column',
 		style = {'width':'72vw', 'margin':'auto'},
 		spacing ='2'
@@ -213,31 +261,37 @@ def table_stock() -> rx.Component:
 			rx.foreach(StockState.stocks, row_stocks),
 			rx.table.row(
 				rx.table.cell(
-					rx.select(
-						[str(i) for i in range(1, 20)],
-						value = StockState.cantidad, # '1',
-						on_change=StockState.change_cantidad()
-					),
+					rx.input(placeholder='Cant', type='number', on_change=StockState.change_cantidad())
 				),
 				rx.table.cell(
-					rx.select(
-						[ mes for mes in meses ],
-						value = StockState.mes,
-						on_change=StockState.change_mes()
-					)
+					rx.input(placeholder='mm/aaaa', type='text', on_change=StockState.change_vencimiento())
 				),
-				rx.table.cell(
-					rx.select(
-						[str(i) for i in range(datetime.date.today().year - 3, datetime.date.today().year + 5)],
-						value = StockState.anio,
-						on_change=StockState.change_anio()
-					),
-				),
+				# rx.table.cell(
+				# 	rx.select(
+				# 		[ str(i) for i in range(20) ],
+				# 		value = StockState.cantidad,
+				# 		on_change=StockState.change_cantidad()
+				# 	),
+				# ),
+				# rx.table.cell(
+				# 	rx.select(
+				# 		[ mes for mes in meses[1:] ],
+				# 		value = StockState.mes,
+				# 		on_change=StockState.change_mes()
+				# 	)
+				# ),
+				# rx.table.cell(
+				# 	rx.select(
+				# 		[str(i) for i in range(datetime.date.today().year - 3, datetime.date.today().year + 5)],
+				# 		value = StockState.anio,
+				# 		on_change=StockState.change_anio()
+				# 	),
+				# ),
 				rx.table.cell(
 					rx.button(
 						'Agregar', 
 						size = '2',
-						on_click=StockState.agregar_stock(31)
+						on_click=StockState.agregar_stock(StockState.id_producto)
 					)
 				),
 			)
@@ -247,52 +301,29 @@ def table_stock() -> rx.Component:
 
 def row_stocks(stock: StockLapso) -> rx.Component:
 	return rx.table.row(
-		rx.table.cell(stock[1], justify = 'center'),
-		rx.table.cell(stock[3], justify = 'center'),
-		rx.table.cell(stock[4], justify = 'center', style={'background_color':'red'}),
+		rx.table.cell(stock[1], justify = 'center', style={'color':stock[5], 'font_size':'16px'}),
+		rx.table.cell(stock[3], justify = 'center', style={'color':stock[5], 'font_size':'16px'}),
+		rx.table.cell(stock[4], justify = 'center', style={'color':stock[5], 'font_size':'16px'}),
 		rx.table.cell(
 			rx.hstack(
-				delete_stock_dialogo_component(stock[0], stock[2]),
 				rx.button(
 					rx.icon("minus", on_click=StockState.decrementar(stock[0], stock[2])),
 				),
 				rx.button(
+					rx.icon('trash-2', on_click=StockState.delete_stock_by_id(stock[0], stock[2])),
+				),
+				rx.button(
         			rx.icon("plus", on_click=StockState.incrementar(stock[0], stock[2])),
-				)
+				),
 			)
 		),
 	)
 
-def delete_stock_dialogo_component(id_stock: int, id_producto: int) -> rx.Component:
-	return rx.dialog.root(
-		rx.dialog.trigger(
-			rx.button(
-				rx.icon('trash-2')
-			)
-		),
-		rx.dialog.content(
-			rx.dialog.title('Eliminar entrada'),
-			rx.dialog.description('Está seguro de quere eliminar??'),
-			rx.flex(
-				rx.dialog.close(
-					rx.button(
-						'Cancelar',
-						color_scheme = 'gray',
-						variant = 'soft'
-					),
-				),
-				rx.dialog.close(
-					rx.button(
-						'Confirmar', 
-						on_click=StockState.delete_stock_by_id(id_stock, id_producto)),
-				),
-				spacing = '3',
-				margin_top = '16px',
-				justify = 'end',
-			)
-		)
+def buscar_producto_component() -> rx.Component:
+	return rx.hstack(
+		rx.input(placeholder='Producto??', on_change=StockState.buscar_on_change),
+		rx.button('Buscar', on_click=StockState.get_productos)
 	)
-
 
 
 # rx.table.row(

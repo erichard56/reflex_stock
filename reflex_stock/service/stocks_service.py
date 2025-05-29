@@ -1,5 +1,6 @@
 from ..repository.stocks_repository import letras_select_all, productos_select_all, stocks_select_all, \
-       producto_select_by_id, delete_stock, decrementar_stock, incrementar_stock, agregar_stock
+       producto_select_by_id, productos_select, \
+       delete_stock, decrementar_stock, incrementar_stock, agregar_stock
 from ..model.stocks_model import Producto
 
 def letras_select_all_service():
@@ -12,6 +13,10 @@ def productos_select_all_service(letra: str):
 
 def producto_select_by_id_service(id_producto: int):
     producto = producto_select_by_id(id_producto)
+    return producto
+
+def productos_select_service(texto: str):
+    producto = productos_select(texto)
     return producto
 
 def stocks_select_all_service(id_producto: int):
