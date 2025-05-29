@@ -1,5 +1,4 @@
 import reflex as rx
-import _asyncio
 
 def notify_component(message: str, icon_notify: str, color: str) -> rx.Component:
     return rx.callout(
@@ -10,8 +9,8 @@ def notify_component(message: str, icon_notify: str, color: str) -> rx.Component
     )
 
 style_notify = {
-    'position': 'fixed',
-    'top': '0px',
-    'right': '0px',
-    'margin': '10px 10px'
+    'position':'fixed',
+    'top':'0px',
+    'right':'0px',
+    'margin':'10px 10px'
 }

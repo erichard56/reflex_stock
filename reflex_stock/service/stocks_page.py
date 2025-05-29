@@ -122,15 +122,20 @@ class StockState(rx.State):
 	def buscar_on_change(self, value: str):
 		self.producto_buscar = value
 
-	def get_productos(self):
-		self.error = ''
-		self.productos = productos_select_service(self.producto_buscar)
-		if (len(self.productos) == 0):
-			self.error = 'No existen productos con esa busqueda'
-			self.productos = productos_select_all_service(self.letra)
-			self.producto = self.productos[0][1]
-		self.id_producto = self.productos[0][0]
-		self.stocks = stocks_select_all_service(self.id_producto)
+	@rx.event(background=True)
+	async def get_productos(self):
+		async with self:
+			self.error = ''
+			self.productos = productos_select_service(self.producto_buscar)
+			if (len(self.productos) == 0):
+				self.error = 'No existen productos con esa busqueda'
+				self.productos = productos_select_all_service(self.letra)
+				self.producto = self.productos[0][1]
+			self.id_producto = self.productos[0][0]
+			self.stocks = stocks_select_all_service(self.id_producto)
+
+		if (self.error != ''):
+			await self.handleNotify()
 
 	@rx.event()
 	async def handleNotify(self):
@@ -138,49 +143,31 @@ class StockState(rx.State):
 			await asyncio.sleep(2)
 			self.error = ''
 
-	# @rx.event(background=True)
-	# async def get_user_by_email(self):
-	# 	async with self:
-	# 		self.users = select_user_by_email_service(self.user_buscar)
-
-	# @rx.event(background=True)
-	# async def create_user(self, data: dict):
-	# 	async with self:
-	# 		try:
-	# 			self.users = create_user_service(username=data['username'], password=data['password'],
-	# 						phone=data['phone'], name=data['name'])
-	# 		except BaseException as be:
-	# 			print(be.args)
-	# 			self.error = be.args
-	# 	await self.handleNotify()
-		
-	# def buscar_on_change(self, value: str):
-	# 	self.user_buscar = value
-
-	# @rx.event(background=True)
-	# async def delete_user_by_email(self, email):
-	# 	async with self:
-	# 		self.users = delete_user_service(email)
-
-
 @rx.page(route='/stocks', title='Stocs Vero', on_load=StockState.get_all_letras)
 def stocks_page() -> rx.Component:
 	return rx.flex(
 		rx.hstack(
 			rx.heading(
 				'Stocks Vero', 
-				align='center',
-				style={'padding':'10px'}
+				align = 'center',
+				style = { 'padding':'10px' }
 			),
 			justify='center',
 		),
 		rx.hstack(
 			rx.foreach(StockState.letras, row_letras),
 			justify = 'center',
-			style = {'margin_top':'5px'}
+			style = { 'margin_top':'5px' }
 		),
 		rx.hstack(
-			buscar_producto_component(),
+			rx.input(
+				placeholder = 'Producto??', 
+				on_change = StockState.buscar_on_change
+			),
+			rx.button(
+				'Buscar', 
+				on_click = StockState.get_productos
+			),
 			justify = 'end',
 		),
 		rx.flex(
@@ -196,14 +183,14 @@ def stocks_page() -> rx.Component:
 				),
 		),
 		direction = 'column',
-		style = {'width':'72vw', 'margin':'auto'},
+		style = { 'width':'72vw', 'margin':'auto' },
 		spacing ='2'
 	)
 
 def row_letras(letra: tuple) -> rx.Component:
 	return rx.button(
 			letra[0], 
-			on_click=StockState.get_letra(letra[0])
+			on_click = StockState.get_letra(letra[0])
 		)
 
 def table_producto() -> rx.Component:
@@ -213,26 +200,26 @@ def table_producto() -> rx.Component:
 				rx.table.column_header_cell(
 					rx.heading('Productos'),
 					justify = 'center',
-					min_width='33vw'
+					min_width = '33vw'
 				),
 			),			
 		),
 		rx.table.body(
 			rx.foreach(StockState.productos, row_productos)
 		),
-		style= {'border': 'thick double'},
+		style= { 'border':'thick double' },
 	)
 
 def row_productos(producto: Producto) -> rx.Component:
 	return rx.table.row(
 		rx.table.cell(
-		rx.button(
-			producto[1], 
-			variant='ghost',
-			size='3',
-			on_click=StockState.get_stock(producto[0])
-		),
-		align='right',
+			rx.button(
+				producto[1], 
+				variant = 'ghost',
+				size = '3',
+				on_click = StockState.get_stock(producto[0])
+			),
+			align = 'right',
 		)
 	)
 
@@ -243,11 +230,11 @@ def table_stock() -> rx.Component:
 				rx.table.column_header_cell(
 					rx.heading(
 						StockState.producto.replace('"', ''), 
-						color_scheme='orange',
+						color_scheme = 'orange',
 					),
-					min_width='33vw',
-					justify='center', 
-					col_span=4,
+					min_width = '33vw',
+					justify = 'center', 
+					col_span = 4,
 				),
 			),
 			rx.table.row(
@@ -261,193 +248,53 @@ def table_stock() -> rx.Component:
 			rx.foreach(StockState.stocks, row_stocks),
 			rx.table.row(
 				rx.table.cell(
-					rx.input(placeholder='Cant', type='number', on_change=StockState.change_cantidad())
+					rx.input(
+						placeholder = 'Cant', 
+						type = 'number', 
+						style = { 'text_align': 'center' },
+						value = StockState.cantidad, on_change=StockState.change_cantidad()
+					)
 				),
 				rx.table.cell(
-					rx.input(placeholder='mm/aaaa', type='text', on_change=StockState.change_vencimiento())
+					rx.input(
+						placeholder = 'mm/aaaa', 
+						type = 'text', 
+						style = { 'text_align': 'center' },
+						value = StockState.vencimiento, on_change=StockState.change_vencimiento()
+					)
 				),
-				# rx.table.cell(
-				# 	rx.select(
-				# 		[ str(i) for i in range(20) ],
-				# 		value = StockState.cantidad,
-				# 		on_change=StockState.change_cantidad()
-				# 	),
-				# ),
-				# rx.table.cell(
-				# 	rx.select(
-				# 		[ mes for mes in meses[1:] ],
-				# 		value = StockState.mes,
-				# 		on_change=StockState.change_mes()
-				# 	)
-				# ),
-				# rx.table.cell(
-				# 	rx.select(
-				# 		[str(i) for i in range(datetime.date.today().year - 3, datetime.date.today().year + 5)],
-				# 		value = StockState.anio,
-				# 		on_change=StockState.change_anio()
-				# 	),
-				# ),
 				rx.table.cell(
 					rx.button(
 						'Agregar', 
 						size = '2',
-						on_click=StockState.agregar_stock(StockState.id_producto)
-					)
+						on_click = StockState.agregar_stock(StockState.id_producto)
+					),
+					col_span=3
 				),
 			)
 		),
-		style= {'border': 'thick double'},
+		style= { 'border':'thick double' },
 	)
 
 def row_stocks(stock: StockLapso) -> rx.Component:
 	return rx.table.row(
-		rx.table.cell(stock[1], justify = 'center', style={'color':stock[5], 'font_size':'16px'}),
-		rx.table.cell(stock[3], justify = 'center', style={'color':stock[5], 'font_size':'16px'}),
-		rx.table.cell(stock[4], justify = 'center', style={'color':stock[5], 'font_size':'16px'}),
+		rx.table.cell(stock[1], justify = 'center', style={ 'color':stock[5], 'font_size':'16px' }),
+		rx.table.cell(stock[3], justify = 'center', style={ 'color':stock[5], 'font_size':'16px' }),
+		rx.table.cell(stock[4], justify = 'center', style={ 'color':stock[5], 'font_size':'16px' }),
 		rx.table.cell(
 			rx.hstack(
 				rx.button(
-					rx.icon("minus", on_click=StockState.decrementar(stock[0], stock[2])),
+					rx.icon("minus", on_click = StockState.decrementar(stock[0], stock[2])),
 				),
 				rx.button(
-					rx.icon('trash-2', on_click=StockState.delete_stock_by_id(stock[0], stock[2])),
+					rx.icon('trash-2', on_click = StockState.delete_stock_by_id(stock[0], stock[2])),
 				),
 				rx.button(
-        			rx.icon("plus", on_click=StockState.incrementar(stock[0], stock[2])),
+        			rx.icon("plus", on_click = StockState.incrementar(stock[0], stock[2])),
 				),
 			)
 		),
 	)
-
-def buscar_producto_component() -> rx.Component:
-	return rx.hstack(
-		rx.input(placeholder='Producto??', on_change=StockState.buscar_on_change),
-		rx.button('Buscar', on_click=StockState.get_productos)
-	)
-
-
-# rx.table.row(
-# 		rx.table.cell(user.name),
-# 		rx.table.cell(user.username),
-# 		rx.table.cell(user.phone),
-# 		rx.table.cell(
-# 			rx.hstack(
-# 				delete_user_dialogo_component(user.username),
-# 			)
-# 		)
-# 	)
-
-# def table_use(list_user: list[User]) -> rx.Component:
-# 		return rx.table.root(
-# 			 rx.table.header(
-# 				rx.table.row(
-# 					 rx.table.column_header_cell('Nombre'),
-# 					 rx.table.column_header_cell('Email'),
-# 					 rx.table.column_header_cell('Telefono'),
-# 					 rx.table.column_header_cell('Accion')
-# 				)
-# 			 ),
-# 			 rx.table.body(
-# 				rx.foreach(list_user, row_table)
-# 			 )
-# 		)
-
-# def row_table(user: User) -> rx.Component:
-# 	return rx.table.row(
-# 		rx.table.cell(user.name),
-# 		rx.table.cell(user.username),
-# 		rx.table.cell(user.phone),
-# 		rx.table.cell(
-# 			rx.hstack(
-# 				delete_user_dialogo_component(user.username),
-# 			)
-# 		)
-# 	)
-
-# def buscar_user_component() -> rx.Component:
-# 	return rx.hstack(
-# 		rx.input(placeholder='Ingrese email', on_change=UserState.buscar_on_change),
-# 		rx.button('Buscar usuario', on_click=UserState.get_user_by_email)
-# 	)
-
-# def create_user_dialogo_component() -> rx.Component:
-# 	return rx.dialog.root(
-# 		rx.dialog.trigger(rx.button('Crear usuario')),
-# 		rx.dialog.content(
-# 			rx.flex(
-# 				rx.dialog.title('Crear usuario'),
-# 				create_user_form(),
-# 				justify = 'center',
-# 				align = 'center',
-# 				direction = 'column',
-# 			),
-# 			rx.flex(
-# 				rx.dialog.close(
-# 					rx.button('Cancelar', color_scheme='gray', variant='soft')
-# 				),
-# 				spacing = '3',
-# 				margin_top = '16px',
-# 				justify = 'end'
-# 			),
-# 			style = {'width':'300px'}
-# 		),
-# 	)
-
-# def create_user_form() -> rx.Component:
-# 	return rx.form(
-# 		rx.vstack(
-# 			rx.input(
-# 				placeholder = 'Nombre',
-# 				name = 'name'
-# 			),
-# 			rx.input(
-# 				placeholder = 'Email',
-# 				name = 'username'
-# 			),
-# 			rx.input(
-# 				placeholder = 'Contraseña',
-# 				name = 'password',
-# 				type = 'password'
-# 			),
-# 			rx.input(
-# 				placeholder = 'Teléfono',
-# 				name = 'phone'
-# 			),
-# 			rx.dialog.close(
-# 				rx.button('Guardar', type='submit')
-# 			),
-# 		),
-# 		on_submit=UserState.create_user,
-# 	)
-
-# def delete_user_dialogo_component(username: str) -> rx.Component:
-# 	return rx.dialog.root(
-# 		rx.dialog.trigger(
-# 			rx.button(
-# 				rx.icon('trash-2')
-# 			)
-# 		),
-# 		rx.dialog.content(
-# 			rx.dialog.title('Eliminar usuario'),
-# 			rx.dialog.description('Está seguro de quere eliminar el usuario ', username),
-# 			rx.flex(
-# 				rx.dialog.close(
-# 					rx.button(
-# 						'Cancelar',
-# 						color_scheme = 'gray',
-# 						variant = 'soft'
-# 					),
-# 				),
-# 				rx.dialog.close(
-# 					rx.button('Confirmar', on_click=UserState.delete_user_by_email(username)),
-# 				),
-# 				spacing = '3',
-# 				margin_top = '16px',
-# 				justify = 'end',
-# 			)
-# 		)
-# 	)
-
 
 app = rx.App()
 app.add_page(stocks_page)
