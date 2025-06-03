@@ -143,14 +143,21 @@ class StockState(rx.State):
 			await asyncio.sleep(2)
 			self.error = ''
 
+@rx.page(route='/', title='Stocs Vero', on_load=StockState.get_all_letras)
 @rx.page(route='/stocks', title='Stocs Vero', on_load=StockState.get_all_letras)
 def stocks_page() -> rx.Component:
 	return rx.flex(
 		rx.hstack(
+			rx.image(
+				src = 'just.jpg', 
+				width = '100px',
+				height = 'auto',
+				align = 'start'	# = 'start',
+			),
 			rx.heading(
 				'Stocks Vero', 
 				align = 'center',
-				style = { 'padding':'10px' }
+				style = { 'padding_top':'20px' }
 			),
 			justify='center',
 		),
@@ -207,7 +214,7 @@ def table_producto() -> rx.Component:
 		rx.table.body(
 			rx.foreach(StockState.productos, row_productos)
 		),
-		style= { 'border':'thick double' },
+		style= { 'border':'solid' },
 	)
 
 def row_productos(producto: Producto) -> rx.Component:
@@ -273,7 +280,7 @@ def table_stock() -> rx.Component:
 				),
 			)
 		),
-		style= { 'border':'thick double' },
+		style= { 'border':'solid' },
 	)
 
 def row_stocks(stock: StockLapso) -> rx.Component:
