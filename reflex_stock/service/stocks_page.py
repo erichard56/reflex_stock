@@ -21,13 +21,13 @@ class State(rx.State):
 	role: int = 0
 	usuario: str = ''
 	opc: str = 'img'
-	letras: list[tuple]
-	letra: str
+	# letras: list[tuple]
+	# letra: str
 	productos: list[list]
 	producto: str = ''
 	id_producto: int = 0
 	cantidad: str = 1
-	producto_buscar: str = ''
+	busq: str = ''
 	error: str = ''
 
 	@rx.event()
@@ -48,22 +48,22 @@ class State(rx.State):
 			await self.handle_notify()
 
 
-	@rx.event(background=True)
-	async def get_all_letras(self):
-		async with self:
-			self.letras = letras_select_all()
-			self.letra = self.letras[0][0]
-			self.productos = items_select_all(self.letra)
-			self.id_producto = self.productos[0][0]
-			self.producto = item_select_by_id(self.id_producto)
+	# @rx.event(background=True)
+	# async def get_all_letras(self):
+	# 	async with self:
+	# 		self.letras = letras_select_all()
+	# 		self.letra = self.letras[0][0]
+	# 		self.productos = items_select_all(self.letra)
+	# 		self.id_producto = self.productos[0][0]
+	# 		self.producto = item_select_by_id(self.id_producto)
 
-	@rx.event(background=True)
-	async def get_letra(self, letra):
-		async with self:
-			self.productos = items_select_all(letra)
-			self.letra = letra
-			self.id_producto = self.productos[0][0]
-			self.producto = item_select_by_id(self.id_producto)
+	# @rx.event(background=True)
+	# async def get_letra(self, letra):
+	# 	async with self:
+	# 		self.productos = items_select_all(letra)
+	# 		self.letra = letra
+	# 		self.id_producto = self.productos[0][0]
+	# 		self.producto = item_select_by_id(self.id_producto)
 
 	@rx.event(background=True)
 	async def get_stock(self, id_producto):
@@ -80,13 +80,13 @@ class State(rx.State):
 	async def decrementar(self, id_producto):
 		async with self:
 			item_ingegr('out', id_producto, 1)
-			self.productos = items_select_all(self.letra)
+			self.productos = items_select_by_text(self.busq)
 
 	@rx.event(background=True)
 	async def incrementar(self, id_producto):
 		async with self:
 			item_ingegr('in', id_producto, 1)
-			self.productos = items_select_all(self.letra)
+			self.productos = items_select_by_text(self.busq)
 
 	@rx.event()
 	def change_cantidad(self, value: str):
@@ -98,7 +98,7 @@ class State(rx.State):
 			cantidad = chkCantidad(self.cantidad)
 			if (type(cantidad) == int):
 				item_ingegr(direccion, id_producto, cantidad)
-				self.productos = items_select_all(self.letra)
+				self.productos = items_select_by_text(self.busq)
 				self.producto = self.productos[0][1]
 				self.id_producto = self.productos[0][0]
 			else:
@@ -109,17 +109,17 @@ class State(rx.State):
 
 
 	def buscar_on_change(self, value: str):
-		self.producto_buscar = value
-		print(self.producto_buscar)
+		self.busq = value
+		print(self.busq)
 
 	@rx.event(background=True)
 	async def get_productos(self):
 		async with self:
 			self.error = ''
-			self.productos = items_select_by_text(self.producto_buscar)
+			self.productos = items_select_by_text(self.busq)
 			if (len(self.productos) > 0):
 				self.producto = self.productos[0][1]
-				self.letra = self.producto[0][0]
+				# self.letra = self.producto[0][0]
 			else:
 				self.error = 'No existen productos con esa busqueda'
 
@@ -208,7 +208,7 @@ def fnc_menu() -> rx.Component:
 				rx.button( 'Buscar', on_click = State.get_productos ),
 			),
 		),
-		table_producto(State.producto_buscar),
+		table_producto(State.busq),
 		rx.cond(
 			State.error != '',
 			notify_component(
