@@ -1,12 +1,12 @@
-# import mysql.connector
+import mysql.connector
 import sqlite3
 
-DATABASE = './stock.db'
+# DATABASE = './stock.db'
 
-def connect():
-    conn = sqlite3.connect(DATABASE, check_same_thread=False)
-    cursor = conn.cursor()
-    return conn, cursor
+# def connect():
+#     conn = sqlite3.connect(DATABASE, check_same_thread=False)
+#     cursor = conn.cursor()
+#     return conn, cursor
 
 # mydb = mysql.connector.connect(
 #   host="localhost",
@@ -15,13 +15,12 @@ def connect():
 #   database="apasiona_mstocks"
 # )
 
-# mydb = mysql.connector.connect(
-#   host = '45.227.160.222',
-#   user = 'mstock',
-#   password = 'locolindol2020!!',
-#   database = 'mstockdb2025'
-# )
+mydb = mysql.connector.connect(
+  host = '45.227.160.222',
+  user = 'uv029301_mstocks',
+  password = 'mstocksuv029301mstocks',
+  database = 'uv029301_mstocks'
+)
 
-
-# cursor = mydb.cursor()
+cursor = mydb.cursor()
 

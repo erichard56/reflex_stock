@@ -1,7 +1,8 @@
 import reflex as rx
-from .stocks_repository import letras_select_all, items_select_all, item_ingegr
+from .stocks_repository import items_select_all, item_ingegr
 from .stocks_repository import item_select_by_id, items_select_by_text
-from .stocks_repository import get_usuario
+from .stocks_repository import chk_usuario, get_logs, get_item, insmod_item
+from .stocks_repository import get_usuarios, get_usuario, graba_clave
 			
 from .notify import notify_component
 import asyncio
@@ -19,16 +20,23 @@ def chkCantidad(cantidad):
 
 class State(rx.State):
 	role: int = 0
-	usuario: str = ''
-	opc: str = 'img'
-	# letras: list[tuple]
-	# letra: str
+	username: str = ''
+	id_usuario: int = 0
+	opc: str = ''
 	productos: list[list]
 	producto: str = ''
 	id_producto: int = 0
 	cantidad: str = 1
 	busq: str = ''
 	error: str = ''
+	logs: list[list]
+	name: str
+	descr: str
+	precio: str
+	precio_venta: str
+	item: tuple
+	usuarios: list[tuple]
+	usuario: tuple
 
 	@rx.event()
 	async def handle_notify(self):
@@ -37,25 +45,49 @@ class State(rx.State):
 			self.error = ''
 
 	@rx.event(background=True)
+	async def evt_salir(self):
+		async with self:
+			self.role = 0
+			self.opc = ''
+
+	@rx.event(background=True)
 	async def handle_ingresar(self, form_data: dict):
 		async with self:
-			self.role = get_usuario(form_data['usuario'], form_data['clave'])
+			self.id_usuario, self.role = chk_usuario(form_data['usuario'], form_data['clave'])
 			if (self.role > 0):
-				self.usuario = form_data['usuario']
+				self.username = form_data['usuario']
 			else:
 				self.error = 'Usuario o Clave invalidos'
 		if (self.error != ''):
 			await self.handle_notify()
 
+	@rx.event(background=True)
+	async def handle_clave(self, form_data: dict):
+		async with self:
+			if (form_data['clave'] == form_data['verif']):
+				graba_clave(form_data['id'], form_data['clave'])
+				self.opc = ''
+			else:
+				self.error = 'La clave no coincide con la verificacion'
+		if (self.error != ''):
+			await self.handle_notify()
 
-	# @rx.event(background=True)
-	# async def get_all_letras(self):
-	# 	async with self:
-	# 		self.letras = letras_select_all()
-	# 		self.letra = self.letras[0][0]
-	# 		self.productos = items_select_all(self.letra)
-	# 		self.id_producto = self.productos[0][0]
-	# 		self.producto = item_select_by_id(self.id_producto)
+
+
+	@rx.event(background=True)
+	async def handle_mod_item(self, form_data: dict):
+		async with self:
+			insmod_item(form_data)
+			self.productos = items_select_by_text(self.busq)
+			self.opc = 'prods'
+		if (self.error != ''):
+			await self.handle_notify()
+
+	@rx.event(background=True)
+	async def evt_usuarios(self):
+		async with self:
+			self.usuarios = get_usuarios()
+			self.opc = 'users'
 
 	# @rx.event(background=True)
 	# async def get_letra(self, letra):
@@ -71,6 +103,20 @@ class State(rx.State):
 			self.id_producto = id_producto
 			self.producto = item_select_by_id(self.id_producto)
 
+	@rx.event(background=True)
+	async def evt_logs(self, id):
+		async with self:
+			self.producto, self.logs = get_logs(id)
+			fnc_logs(self.producto, self.logs)
+			self.opc = 'logs'
+
+
+	@rx.event(background=True)
+	async def evt_precio(self, id):
+		async with self:
+			self.item = get_item(id)
+			self.opc = 'prec'
+
 	# @rx.event(background=True)
 	# async def delete_stock_by_id(self, id_stock, id_producto):
 	# 	async with self:
@@ -79,25 +125,43 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def decrementar(self, id_producto):
 		async with self:
-			item_ingegr('out', id_producto, 1)
+			item_ingegr('out', id_producto, 1, self.id_usuario)
 			self.productos = items_select_by_text(self.busq)
 
 	@rx.event(background=True)
 	async def incrementar(self, id_producto):
 		async with self:
-			item_ingegr('in', id_producto, 1)
+			item_ingegr('in', id_producto, 1, self.id_usuario)
 			self.productos = items_select_by_text(self.busq)
 
 	@rx.event()
 	def change_cantidad(self, value: str):
 		self.cantidad = value
 
+
+	@rx.event()
+	def change_name(self, value: str):
+		self.name = value
+
+	@rx.event()
+	def change_descr(self, value: str):
+		self.descr = value
+
+	@rx.event()
+	def change_precio_venta(self, value: str):
+		self.precio_venta = value
+
+	@rx.event()
+	def change_precio(self, value: str):
+		self.precio = value
+
+
 	@rx.event(background=True)
 	async def agregar_stock(self, direccion, id_producto):
 		async with self:
 			cantidad = chkCantidad(self.cantidad)
 			if (type(cantidad) == int):
-				item_ingegr(direccion, id_producto, cantidad)
+				item_ingegr(direccion, id_producto, cantidad, self.id_usuario)
 				self.productos = items_select_by_text(self.busq)
 				self.producto = self.productos[0][1]
 				self.id_producto = self.productos[0][0]
@@ -110,7 +174,6 @@ class State(rx.State):
 
 	def buscar_on_change(self, value: str):
 		self.busq = value
-		print(self.busq)
 
 	@rx.event(background=True)
 	async def get_productos(self):
@@ -119,6 +182,7 @@ class State(rx.State):
 			self.productos = items_select_by_text(self.busq)
 			if (len(self.productos) > 0):
 				self.producto = self.productos[0][1]
+				self.opc = 'prods'
 				# self.letra = self.producto[0][0]
 			else:
 				self.error = 'No existen productos con esa busqueda'
@@ -126,32 +190,82 @@ class State(rx.State):
 		if (self.error != ''):
 			await self.handleNotify()
 
+	@rx.event(background=True)
+	async def evt_nuevo_producto(self):
+		async with self:
+			self.item = [0, '', '', 0, 0, 0.0, 0.0, '', '']
+			self.opc='nuevoprod'
+
 	@rx.event()
 	async def handleNotify(self):
 		async with self:
 			await asyncio.sleep(2)
 			self.error = ''
 
-@rx.page(route='/', title='Stocks', on_load=State.get_all_letras)
-@rx.page(route='/stocks', title='Stocks', on_load=State.get_all_letras)
+	@rx.event(background=True)
+	async def evt_usuario(self, id):
+		async with self:
+			self.opc = ''
+
+	@rx.event(background=True)
+	async def evt_clave(self, id):
+		async with self:
+			self.usuario = get_usuario(id)
+			self.opc = 'clave'
+
+
+@rx.page(route='/', title='Stocks')	#, on_load=State.get_all_letras)
+@rx.page(route='/stocks', title='Stocks')	#, on_load=State.get_all_letras)
 def stocks_page() -> rx.Component:
 	return rx.box(
 		rx.vstack(
 			rx.card(
 				rx.hstack(
-					rx.image(
-						src = 'logo3x.jpeg', 
-						width = '40%',
-						height = '100px',
-						align = 'center'
+					rx.vstack(
+						rx.image(
+							src = 'logo3x.jpeg', 
+							width = '100%',
+							height = 'auto',
+							align = 'center'
+						),
 					),
 					rx.box(
 						rx.cond(
 							State.role == 0,
 							fnc_ingresar(),
 							rx.hstack(
-								rx.text('Hola ', State.usuario),
-								rx.button('Salir')
+								rx.card(
+									rx.vstack(
+										rx.text('Hola ', State.username),
+										rx.match(
+											State.role,
+											(1, rx.text('Administrador')),
+											(2, rx.text('General Supervisor')),
+											(3, rx.text('Supervisor')),
+											(4, rx.text('Empleado')),
+										)
+									)
+								),
+								rx.vstack(
+									rx.card(
+										rx.hstack(
+											rx.input(placeholder = 'Producto??', on_change = State.buscar_on_change),
+											rx.button('Buscar', on_click = State.get_productos),
+										),
+									),
+									rx.card(
+										rx.hstack(
+											rx.cond (
+												State.role == 1,
+												rx.box(
+													rx.button('Nuevo Producto', on_click=State.evt_nuevo_producto()),
+													rx.button('Usuarios', on_click=State.evt_usuarios()),
+												),
+											),
+											rx.button('Salir', on_click=State.evt_salir()),
+										)
+									)
+								),
 							),
 						),
 						margin_x='20px',
@@ -163,14 +277,20 @@ def stocks_page() -> rx.Component:
 			rx.box(
 				rx.cond(
 					State.role > 0,
-					fnc_menu(),
-				)
-			)
+					rx.box(
+						rx.match(
+							State.opc,
+							('prods', table_producto(State.busq)),
+							('logs', fnc_logs(State.producto, State.logs)),
+							('prec', fnc_insmod_producto(State.item)),
+							('nuevoprod', fnc_insmod_producto(State.item)),
+							('users', fnc_usuarios(State.usuarios)),
+							('clave', fnc_clave(State.usuario)),
+						),
+					),
+				),
+			),
 		),
-		# rx.match(
-		# 	State.opc,
-		# 	('sal', rx.text('fnc_salir()')),
-		# ),
 		rx.cond(
 			State.error != '',
 			notify_component(
@@ -186,10 +306,12 @@ def stocks_page() -> rx.Component:
 	
 def fnc_ingresar() -> rx.Component:
 	return rx.form(
-		rx.hstack(
-			rx.input(placeholder='Usuario', type='text', name='usuario'),
-			rx.input(placeholder='Clave', type='password', name='clave'),
-			rx.button(rx.icon('smile'), 'Ingresar', type='submit'),
+		rx.card(
+			rx.hstack(
+				rx.input(placeholder='Usuario', type='text', name='usuario'),
+				rx.input(placeholder='Clave', type='password', name='clave'),
+				rx.button(rx.icon('smile'), 'Ingresar', type='submit'),
+			),
 		),
 		on_submit=State.handle_ingresar,
 		reset_on_submit=True,
@@ -197,46 +319,13 @@ def fnc_ingresar() -> rx.Component:
 
 def fnc_menu() -> rx.Component:
 	return rx.box(
-		# rx.hstack(
-		# 	rx.foreach(State.letras, row_letras),
-		# 	justify = 'center',
-		# 	style = { 'margin_top':'1px' }
-		# ),
-		rx.center(
-			rx.hstack(
-				rx.input( placeholder = 'Producto??', on_change = State.buscar_on_change ),
-				rx.button( 'Buscar', on_click = State.get_productos ),
-			),
-		),
 		table_producto(State.busq),
 		rx.cond(
 			State.error != '',
-			notify_component(
-					State.error,
-					'shield_alert',
-					'yellow'
-				),
+			notify_component(State.error, 'shield_alert', 'yellow'),
 		),
-
-		# rx.box(
-		# 	rx.hstack(
-		# 		# rx.button(rx.icon('users-round'), 'Personas', on_click=State.evt_personas()),
-		# 		# rx.button(rx.icon('calendar-days'), 'Agenda', on_click=State.evt_agendas_lista()),
-		# 		# rx.button(rx.icon('ticket'), 'Eventos', on_click=State.evt_eventos_lista()),
-		# 		# rx.button(rx.icon('house'), 'Casas', on_click=State.evt_casas_lista()),
-		# 		# rx.button(rx.icon('graduation-cap'), 'Grados', on_click=State.evt_grados_lista()),
-		# 		# rx.button(rx.icon('list'), 'Tipo Eventos', on_click=State.evt_tipoeventos_lista()),
-		# 		# rx.button(rx.icon('list'), 'Extras', on_click=State.evt_tipoextras_lista()),
-		# 	),
-		# ),
 		width='100%',
 	)
-
-def row_letras(letra: tuple) -> rx.Component:
-	return rx.button(
-			letra[0], 
-			on_click = State.get_letra(letra[0])
-		)
 
 def table_producto(busq) -> rx.Component:
 	return rx.card(
@@ -247,7 +336,7 @@ def table_producto(busq) -> rx.Component:
 					rx.table.column_header_cell('Deposito', width='20%'),
 					rx.table.column_header_cell('Stock', width='10%'),
 					rx.table.column_header_cell('Precio', width='10%'),
-					rx.table.column_header_cell('Precio de Venta', width='10%'),
+					rx.table.column_header_cell('Precio Vta', width='10%'),
 					rx.table.column_header_cell('Imagen', width='10%'),
 					rx.table.column_header_cell('Acciones', width='10%')
 				),			
@@ -259,6 +348,7 @@ def table_producto(busq) -> rx.Component:
 				),
 			),
 		),
+		width='100%',
 	)
 
 def row_productos(producto) -> rx.Component:
@@ -272,23 +362,59 @@ def row_productos(producto) -> rx.Component:
 		rx.table.cell(
 			rx.hstack(
 				rx.button(rx.icon("plus", on_click = State.incrementar(producto[0]))),
-				# rx.button(rx.icon('trash-2')), #, on_click = State.delete_stock_by_id(producto[0]))),
 				rx.button(rx.icon("minus", on_click = State.decrementar(producto[0]))),
-				ingegr('in', producto[0]),
-				ingegr('out', producto[0]),
-				# rx.button('Ingreso', on_click = State.agregar_stock(State.id_producto) ),
-				# rx.button('Salida', on_click = State.agregar_stock(State.id_producto) ),
+				fnc_ingegr('in', producto[0]),
+				fnc_ingegr('out', producto[0]),
+				rx.button(rx.icon('pencil'), on_click=State.evt_precio(producto[0])),
+				rx.button('Logs', on_click=State.evt_logs(producto[0]))
 			)
 		),
 	)
 
-def ingegr(direccion, id) -> rx.Component:
+def fnc_logs_one(log):
+	return rx.table.row(
+		rx.table.cell(rx.text(log[0])),
+		rx.table.cell(rx.text(log[1])),
+		rx.table.cell(rx.text(log[2])),
+		rx.table.cell(rx.text(log[3])),
+		rx.table.cell(rx.text(log[4])),
+	)
+
+def fnc_logs(producto, logs) -> rx.Component:
+	return rx.box(
+		rx.flex(
+			rx.card(
+				rx.heading(producto),
+			),
+			rx.card(
+				rx.table.root(
+					rx.table.header( 
+						rx.table.row(
+							rx.table.column_header_cell('Tipo'), #, width='100%'),
+							rx.table.column_header_cell('Desde'), #), width='100%'),
+							rx.table.column_header_cell('Hasta'), #, width='100%'),
+							rx.table.column_header_cell('Usuario'), #, width='100%'),
+							rx.table.column_header_cell('Fecha'), #, width='100%'),
+						),			
+					),
+					rx.table.body(
+						rx.foreach(logs, fnc_logs_one)
+					),
+				),
+			),
+		),
+		width='100%',
+	)
+
+
+
+def fnc_ingegr(direccion, id) -> rx.Component:
 	return rx.box(
 		rx.dialog.root(
 			rx.cond(
 				direccion == 'in', 
-				rx.dialog.trigger(rx.button("Ingreso")),
-				rx.dialog.trigger(rx.button("Egreso")),
+				rx.dialog.trigger(rx.button("Ing")),
+				rx.dialog.trigger(rx.button("Egr")),
 			),
 			rx.dialog.content(
 				rx.hstack(
@@ -306,6 +432,100 @@ def ingegr(direccion, id) -> rx.Component:
 			),
 		)
 	)
+
+def fnc_insmod_producto(item: list = None) -> rx.Component:
+	return rx.card(
+		rx.form(
+			rx.vstack(
+				rx.cond(
+					item[0] == 0,
+					rx.heading("Nuevo Producto"),
+					rx.heading("Modificacion"),
+				),
+				rx.input(default_value=item[0], name='id', style={'width':'0px', 'height':'0px'}),
+				rx.hstack(
+					rx.text("Nombre: ", margin_bottom="4px", weight="bold"),
+					rx.input(default_value=item[1], placeholder=item[1], name='name', on_change=State.change_name()),
+				),
+				rx.hstack(
+					rx.text("Descripcion: ", margin_bottom="4px", weight="bold"),
+					rx.input(default_value=item[2], placeholder=item[2], name='descrp', on_change=State.change_descr()),
+				),
+				rx.hstack(
+					rx.text("Precio: ", margin_bottom="4px", weight="bold"),
+					rx.input(default_value=item[5], placeholder=item[5], step="0.1", name='price', on_change=State.change_precio()),
+				),
+				rx.hstack(
+					rx.text("Precio de Venta: ", margin_bottom="4px", weight="bold"),
+					rx.input(default_value=item[6], placeholder=item[6], step="0.1", name='price_venta', on_change=State.change_precio_venta()),
+				),
+				rx.hstack(
+					rx.button("Cancel", color_scheme="gray", variant="soft"),
+					rx.button("Grabar", type='submit'),
+				),
+			),
+			on_submit=State.handle_mod_item,
+			reset_on_submit=True,
+		),
+	)
+
+
+def fnc_usuarios(usuarios) -> rx.Component:
+	return rx.box(
+		rx.flex(
+			rx.card(
+				rx.heading('Usuarios'),
+			),
+			rx.card(
+				rx.table.root(
+					rx.table.header( 
+						rx.table.row(
+							rx.table.column_header_cell('Nombre'),
+							rx.table.column_header_cell('Usuario'),
+							rx.table.column_header_cell('Email'),
+							rx.table.column_header_cell('Rol'),
+							rx.table.column_header_cell('Registrado'),
+							rx.table.column_header_cell('Acciones'),
+							rx.table.column_header_cell(rx.button('Nuevo')),
+						),			
+					),
+					rx.table.body(
+						rx.foreach(usuarios, fnc_usuarios_one)
+					),
+				),
+			),
+		),
+		width='100%',
+	)
+
+def fnc_usuarios_one(usuario):
+	return rx.table.row(
+		rx.table.cell(rx.text(usuario[3])),
+		rx.table.cell(rx.text(usuario[1])),
+		rx.table.cell(rx.text(usuario[4])),
+		rx.table.cell(rx.text(usuario[5])),
+		rx.table.cell(rx.text(usuario[6])),
+		rx.table.cell(
+			rx.button(rx.icon('pencil'), on_click=State.evt_usuario(usuario[0])),
+			rx.button(rx.icon('lock-keyhole'), on_click=State.evt_clave(usuario[0])),
+		),
+	)
+
+def fnc_clave(usuario) -> rx.Component:
+	return rx.form (
+		rx.card(
+			rx.hstack(
+				rx.input(default_value=usuario[0], name='id', style={'width':'0px', 'height':'0px'}),
+				rx.input(placeholder='Nueva Clave', type='password', name='clave'),
+				rx.input(placeholder='Verificacion', type='password', name='verif'),
+				rx.button('Grabar', type='submit'),
+			),
+		),
+		on_submit=State.handle_clave,
+		reset_on_submit=True,
+
+	)
+
 
 app = rx.App()
 app.add_page(stocks_page)
