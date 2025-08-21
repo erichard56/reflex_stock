@@ -43,6 +43,18 @@ class State(rx.State):
 	verif: str
 	email: str
 	rol: str
+	uploaded_files: list[str] = []
+ 
+	@rx.event
+	async def handle_upload(self, files: list[rx.UploadFile]):
+		print(id, '...', self.id_foto, files[0])
+		for file in files:
+			data = await file.read()
+			path = rx.get_upload_dir() / file.name
+			with path.open("wb") as f:
+				f.write(data)
+			self.uploaded_files.append(file.name)
+
 
 	@rx.event()
 	async def handle_notify(self):
@@ -409,11 +421,24 @@ def row_productos(producto) -> rx.Component:
 				fnc_ingegr('in', producto[0]),
 				fnc_ingegr('out', producto[0]),
 				rx.button(rx.icon('pencil'), on_click=State.evt_precio(producto[0])),
-				rx.button('Logs', on_click=State.evt_logs(producto[0]))
+				rx.button('Logs', on_click=State.evt_logs(producto[0])),
+				upload_component(producto[0]),
 			)
 		),
 	)
 
+def upload_component(id: int):
+	return rx.vstack(
+		rx.upload(id="upload"),
+		rx.button(
+			"Upload",
+			on_click=State.handle_upload(rx.upload_files("upload")),
+		),
+		# rx.foreach(
+		# 	State.uploaded_files,
+		# 	lambda f: rx.image(src=rx.get_upload_url(f)),
+		# ),
+	)
 
 
 def fnc_ingegr(direccion, id) -> rx.Component:
