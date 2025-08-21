@@ -21,7 +21,7 @@ def chk_usuario(usuario: str, clave: str):
 
 
 def get_usuarios():
-	q1 = f'SELECT * FROM mstocks_users ORDER BY id'
+	q1 = f'SELECT * FROM mstocks_users ORDER BY name'
 	cursor.execute(q1)
 	usuarios = cursor.fetchall()
 	return(usuarios)
@@ -151,3 +151,17 @@ def insmod_item(data):
 	cursor.execute(q1)
 	mydb.commit()
 
+def insmod_usuario(data):
+	# id = int(data['id'])
+	# name = data['name']
+	# descrp = data['descrp']
+	# price = float(data['price'])
+	# price_venta = float(data['price_venta'])
+	# if (id == 0):
+	# 	fecha = date.today()
+	# 	q1 = f'INSERT INTO mstocks_items (id, name, descrp, category, qty, price, price_venta, date_added) VALUES (0,"{name}", "{descrp}", 3, 0, {price}, {price_venta}, "{fecha}")'
+	# else:
+	# 	q1 = f'UPDATE mstocks_items SET name = "{name}", descrp = "{descrp}", price = {price}, price_venta = {price_venta} WHERE id = {id}'
+	# cursor.execute(q1)
+	# mydb.commit()
+	a = 1
