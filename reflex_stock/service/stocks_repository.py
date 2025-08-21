@@ -105,7 +105,7 @@ def item_ingegr(direccion: str, id: int, cantidad: int, id_usuario: int):
 def get_logs(id: int):
 	q1 = f'SELECT CONCAT(name, " (", descrp, ")") FROM mstocks_items WHERE id = {id}'
 	cursor.execute(q1)
-	name = cursor.fetchone()
+	name = cursor.fetchone()[0]
 
 	q1 = f'SELECT type, item, fromqty, toqty, fromprice, toprice, date_added, user FROM mstocks_logs WHERE item = {id} ORDER BY date_added DESC, id DESC'
 	cursor.execute(q1)
@@ -127,7 +127,6 @@ def get_logs(id: int):
 		q1 = f'SELECT username FROM mstocks_users WHERE id = {log[7]}'
 		cursor.execute(q1)
 		usuario = cursor.fetchone()
-		# print(name, log, usuario)
 		res.append([accion, desde, hasta, usuario, log[6]])
 	return(name, res)
 
@@ -137,8 +136,12 @@ def get_item(id):
 	item = cursor.fetchone()
 	return(item)
 
-def insmod_item(data):
+def insmod_item(data, id_usuario):
 	id = int(data['id'])
+	q1 = f'SELECT price_venta from mstocks_items WHERE id = {id}'
+	cursor.execute(q1)
+	old_price_venta = float(cursor.fetchone()[0])
+
 	name = data['name']
 	descrp = data['descrp']
 	price = float(data['price'])
@@ -149,6 +152,11 @@ def insmod_item(data):
 	else:
 		q1 = f'UPDATE mstocks_items SET name = "{name}", descrp = "{descrp}", price = {price}, price_venta = {price_venta} WHERE id = {id}'
 	cursor.execute(q1)
+
+	fecha = date.today()
+	q1 = f'INSERT INTO mstocks_logs (id, type, item, fromqty, toqty, fromprice, toprice, date_added, user) VALUES (0, 3, {id}, 0, 0, {old_price_venta}, {price_venta}, "{fecha}", {id_usuario})'
+	cursor.execute(q1)
+	# conn.commit()
 	mydb.commit()
 
 def insmod_usuario(data):

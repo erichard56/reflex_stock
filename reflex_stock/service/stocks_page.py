@@ -3,7 +3,9 @@ from .stocks_repository import items_select_all, item_ingegr
 from .stocks_repository import item_select_by_id, items_select_by_text
 from .stocks_repository import chk_usuario, get_logs, get_item, insmod_item, insmod_usuario
 from .stocks_repository import get_usuarios, get_usuario, graba_clave
-			
+
+from .logs import fnc_logs
+
 from .notify import notify_component
 import asyncio
 import datetime
@@ -75,7 +77,7 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def handle_insmod_item(self, form_data: dict):
 		async with self:
-			insmod_item(form_data)
+			insmod_item(form_data, self.id_usuario)
 			self.productos = items_select_by_text(self.busq)
 			self.opc = 'prods'
 		if (self.error != ''):
@@ -182,7 +184,7 @@ class State(rx.State):
 			await self.handleNotify()
 
 	@rx.event(background=True)
-	async def evt_nuevo_producto(self):
+	async def evt_nuevo_item(self):
 		async with self:
 			self.item = (0, '', '', 0, 0, 0.0, 0.0, '', '')
 			self.opc='insmodproducto'
@@ -190,8 +192,7 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def evt_nuevo_usuario(self):
 		async with self:
-			self.usuario = (0, 'usuario', '', 'nombre', 'email', 0)
-			print('evt_nuevo_usuario ', self.usuario)
+			self.usuario = (0, '', '', '', '', 0)
 			self.opc='insmodusuario'
 
 	@rx.event()
@@ -204,7 +205,6 @@ class State(rx.State):
 	async def evt_usuario(self, id):
 		async with self:
 			self.usuario = get_usuario(id)
-			print('evt_usuario ', self.usuario)
 			self.opc = 'insmodusuario'
 
 	@rx.event(background=True)
@@ -254,7 +254,7 @@ def stocks_page() -> rx.Component:
 											rx.cond (
 												State.role == 1,
 												rx.box(
-													rx.button('Nuevo', on_click=State.evt_nuevo_producto()),
+													rx.button('Nuevo', on_click=State.evt_nuevo_item()),
 												),
 											),
 										),
@@ -291,8 +291,8 @@ def stocks_page() -> rx.Component:
 							State.opc,
 							('prods', table_producto(State.busq)),
 							('logs', fnc_logs(State.producto, State.logs)),
-							('prec', fnc_insmod_producto(State.item)),
-							('insmodproducto', fnc_insmod_producto(State.item)),
+							('prec', fnc_insmod_item(State.item)),
+							('insmodproducto', fnc_insmod_item(State.item)),
 							('users', fnc_usuarios(State.usuarios)),
 							('clave', fnc_clave(State.usuario)),
 							('insmodusuario', fnc_insmod_usuario(State.usuario)),
@@ -381,41 +381,6 @@ def row_productos(producto) -> rx.Component:
 		),
 	)
 
-def fnc_logs_one(log):
-	return rx.table.row(
-		rx.table.cell(rx.text(log[0])),
-		rx.table.cell(rx.text(log[1])),
-		rx.table.cell(rx.text(log[2])),
-		rx.table.cell(rx.text(log[3])),
-		rx.table.cell(rx.text(log[4])),
-	)
-
-def fnc_logs(producto, logs) -> rx.Component:
-	return rx.box(
-		rx.flex(
-			rx.card(
-				rx.heading(producto),
-			),
-			rx.card(
-				rx.table.root(
-					rx.table.header( 
-						rx.table.row(
-							rx.table.column_header_cell('Tipo'), #, width='100%'),
-							rx.table.column_header_cell('Desde'), #), width='100%'),
-							rx.table.column_header_cell('Hasta'), #, width='100%'),
-							rx.table.column_header_cell('Usuario'), #, width='100%'),
-							rx.table.column_header_cell('Fecha'), #, width='100%'),
-						),			
-					),
-					rx.table.body(
-						rx.foreach(logs, fnc_logs_one)
-					),
-				),
-			),
-		),
-		width='100%',
-	)
-
 
 
 def fnc_ingegr(direccion, id) -> rx.Component:
@@ -443,7 +408,7 @@ def fnc_ingegr(direccion, id) -> rx.Component:
 		)
 	)
 
-def fnc_insmod_producto(item: list = None) -> rx.Component:
+def fnc_insmod_item(item: list = None) -> rx.Component:
 	return rx.card(
 		rx.form(
 			rx.vstack(
