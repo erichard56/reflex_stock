@@ -160,16 +160,19 @@ def insmod_item(data, id_usuario):
 	mydb.commit()
 
 def insmod_usuario(data):
-	# id = int(data['id'])
-	# name = data['name']
-	# descrp = data['descrp']
-	# price = float(data['price'])
-	# price_venta = float(data['price_venta'])
-	# if (id == 0):
-	# 	fecha = date.today()
-	# 	q1 = f'INSERT INTO mstocks_items (id, name, descrp, category, qty, price, price_venta, date_added) VALUES (0,"{name}", "{descrp}", 3, 0, {price}, {price_venta}, "{fecha}")'
-	# else:
-	# 	q1 = f'UPDATE mstocks_items SET name = "{name}", descrp = "{descrp}", price = {price}, price_venta = {price_venta} WHERE id = {id}'
-	# cursor.execute(q1)
-	# mydb.commit()
-	a = 1
+	id = int(data['id'])
+	username = data['username']
+	if (id == 0):
+		clave = data['clave']
+		res = hashlib.md5(clave.encode())
+		clave2 = res.hexdigest()
+	name = data['name']
+	email = data['email']
+	rol = data['rol']
+	if (id == 0):
+		fecha = date.today()
+		q1 = f'INSERT INTO mstocks_users (id, username, password, name, email, role, date_added) VALUES (0, "{username}", "{clave2}", "{name}", "{email}", {rol}, "{fecha}")'
+	else:
+		q1 = f'UPDATE mstocks_users SET username = "{username}", name = "{name}", email = "{email}", role = {rol} WHERE id = {id}'
+	cursor.execute(q1)
+	mydb.commit()

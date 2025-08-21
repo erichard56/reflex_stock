@@ -39,6 +39,10 @@ class State(rx.State):
 	item: tuple
 	usuarios: list[tuple]
 	usuario: tuple
+	clave: str
+	verif: str
+	email: str
+	rol: str
 
 	@rx.event()
 	async def handle_notify(self):
@@ -86,9 +90,18 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def handle_insmod_user(self, form_data: dict):
 		async with self:
-			insmod_usuario(form_data)
-			self.usuarios = get_usuarios()
-			self.opc = 'users'
+			if (int(form_data['id']) == 0):
+				if (form_data['clave'] == form_data['verif']):
+					insmod_usuario(form_data)
+					self.usuarios = get_usuarios()
+					self.opc = 'users'
+				else:
+					self.error = 'La clave no coincide con la verificacion'
+			else:
+				insmod_usuario(form_data)
+				self.usuarios = get_usuarios()
+				self.opc = 'users'
+
 		if (self.error != ''):
 			await self.handle_notify()
 
@@ -135,8 +148,28 @@ class State(rx.State):
 		self.cantidad = value
 
 	@rx.event()
+	def change_username(self, value: str):
+		self.username = value
+
+	@rx.event()
+	def change_clave(self, value: str):
+		self.clave = value
+
+	@rx.event()
+	def change_verif(self, value: str):
+		self.verif = value
+
+	@rx.event()
 	def change_name(self, value: str):
 		self.name = value
+
+	@rx.event()
+	def change_email(self, value: str):
+		self.email = value
+
+	@rx.event()
+	def change_rol(self, value: str):
+		self.rol = value
 
 	@rx.event()
 	def change_descr(self, value: str):
@@ -519,25 +552,30 @@ def fnc_insmod_usuario(usuario: list = None) -> rx.Component:
 					rx.text("Usuario: ", margin_bottom="4px", weight="bold"),
 					rx.input(default_value=usuario[1], placeholder=usuario[1], name='username', on_change=State.change_name()),
 				),
-				rx.hstack(
-					rx.text("Clave: ", margin_bottom="4px", weight="bold"),
-					rx.input(name='clave', type='password', on_change=State.change_descr()),
-				),
-				rx.hstack(
-					rx.text("Verificacion: ", margin_bottom="4px", weight="bold"),
-					rx.input(name='verif', type='password', on_change=State.change_descr()),
+				rx.cond(
+					usuario[0] == 0,
+					rx.box(
+						rx.hstack(
+							rx.text("Clave: ", margin_bottom="4px", weight="bold"),
+							rx.input(name='clave', type='password', on_change=State.change_clave()),
+						),
+						rx.hstack(
+							rx.text("Verificacion: ", margin_bottom="4px", weight="bold"),
+							rx.input(name='verif', type='password', on_change=State.change_verif()),
+						),
+					),
 				),
 				rx.hstack(
 					rx.text("Nombre: ", margin_bottom="4px", weight="bold"),
-					rx.input(default_value=usuario[3], placeholder=usuario[3], step="0.1", name='name', on_change=State.change_precio()),
+					rx.input(default_value=usuario[3], placeholder=usuario[3], name='name', on_change=State.change_name()),
 				),
 				rx.hstack(
 					rx.text("Email: ", margin_bottom="4px", weight="bold"),
-					rx.input(default_value=usuario[4], placeholder=usuario[4], step="0.1", name='email', on_change=State.change_precio_venta()),
+					rx.input(default_value=usuario[4], placeholder=usuario[4], name='email', type='email', on_change=State.change_email()),
 				),
 				rx.hstack(
 					rx.text("Rol: ", margin_bottom="4px", weight="bold"),
-					rx.input(default_value=usuario[5], placeholder=usuario[5], step="0.1", name='role', on_change=State.change_precio_venta()),
+					rx.input(default_value=usuario[5], placeholder=usuario[5], name='rol', type='number', on_change=State.change_rol()),
 				),
 				rx.hstack(
 					rx.button("Cancel", color_scheme="gray", variant="soft"),
