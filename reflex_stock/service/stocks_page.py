@@ -25,7 +25,7 @@ class State(rx.State):
 	username: str = ''
 	id_usuario: int = 0
 	opc: str = ''
-	productos: list[tuple]
+	productos: list[list]
 	producto: str = ''
 	id_producto: int = 0
 	cantidad: str = 1
@@ -206,7 +206,6 @@ class State(rx.State):
 		async with self:
 			self.error = ''
 			self.productos = items_select_by_text(self.busq)
-			print('get_productos', self.productos)
 			if (len(self.productos) > 0):
 				self.producto = self.productos[0][1]
 				self.opc = 'prods'
