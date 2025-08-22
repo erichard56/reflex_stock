@@ -1,8 +1,8 @@
 import reflex as rx
-from .stocks_repository import items_select_all, item_ingegr
-from .stocks_repository import item_select_by_id, items_select_by_text
+from .stocks_repository import item_ingegr
+from .stocks_repository import items_select_by_text
 from .stocks_repository import chk_usuario, get_logs, get_item, insmod_item, insmod_usuario
-from .stocks_repository import get_usuarios, get_usuario, graba_clave
+from .stocks_repository import get_usuarios, get_usuario, graba_clave, grabar_foto
 
 from .logs import fnc_logs
 
@@ -25,7 +25,7 @@ class State(rx.State):
 	username: str = ''
 	id_usuario: int = 0
 	opc: str = ''
-	productos: list[list]
+	productos: list[tuple]
 	producto: str = ''
 	id_producto: int = 0
 	cantidad: str = 1
@@ -43,18 +43,7 @@ class State(rx.State):
 	verif: str
 	email: str
 	rol: str
-	uploaded_files: list[str] = []
  
-	@rx.event
-	async def handle_upload(self, files: list[rx.UploadFile]):
-		print(id, '...', self.id_foto, files[0])
-		for file in files:
-			data = await file.read()
-			path = rx.get_upload_dir() / file.name
-			with path.open("wb") as f:
-				f.write(data)
-			self.uploaded_files.append(file.name)
-
 
 	@rx.event()
 	async def handle_notify(self):
@@ -93,9 +82,13 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def handle_insmod_item(self, form_data: dict):
 		async with self:
+			if (len(form_data['foto']) > 0):
+				grabar_foto(form_data)
+			
 			insmod_item(form_data, self.id_usuario)
 			self.productos = items_select_by_text(self.busq)
 			self.opc = 'prods'
+
 		if (self.error != ''):
 			await self.handle_notify()
 
@@ -124,11 +117,6 @@ class State(rx.State):
 			self.usuarios = get_usuarios()
 			self.opc = 'users'
 
-	@rx.event(background=True)
-	async def get_stock(self, id_producto):
-		async with self:
-			self.id_producto = id_producto
-			self.producto = item_select_by_id(self.id_producto)
 
 	@rx.event(background=True)
 	async def evt_logs(self, id):
@@ -218,6 +206,7 @@ class State(rx.State):
 		async with self:
 			self.error = ''
 			self.productos = items_select_by_text(self.busq)
+			print('get_productos', self.productos)
 			if (len(self.productos) > 0):
 				self.producto = self.productos[0][1]
 				self.opc = 'prods'
@@ -413,7 +402,13 @@ def row_productos(producto) -> rx.Component:
 		rx.table.cell(rx.text(producto[3])),
 		rx.table.cell(rx.text(producto[4])),
 		rx.table.cell(rx.text(producto[5])),
-		rx.image(src=producto[6], width='50%'),
+		rx.cond(
+			producto[6] == 'foto',
+			rx.image(src='/axm.jpg', width='50%'),
+            rx.image(src=producto[6], width="50px", height="50px"),
+			# rx.text('-', producto[6], '-'),
+		),
+		# rx.table.cell(rx.text(producto[6])),
 		rx.table.cell(
 			rx.hstack(
 				rx.button(rx.icon("plus", on_click = State.incrementar(producto[0]))),
@@ -422,22 +417,8 @@ def row_productos(producto) -> rx.Component:
 				fnc_ingegr('out', producto[0]),
 				rx.button(rx.icon('pencil'), on_click=State.evt_precio(producto[0])),
 				rx.button('Logs', on_click=State.evt_logs(producto[0])),
-				upload_component(producto[0]),
 			)
 		),
-	)
-
-def upload_component(id: int):
-	return rx.vstack(
-		rx.upload(id="upload"),
-		rx.button(
-			"Upload",
-			on_click=State.handle_upload(rx.upload_files("upload")),
-		),
-		# rx.foreach(
-		# 	State.uploaded_files,
-		# 	lambda f: rx.image(src=rx.get_upload_url(f)),
-		# ),
 	)
 
 
@@ -491,6 +472,13 @@ def fnc_insmod_item(item: list = None) -> rx.Component:
 				rx.hstack(
 					rx.text("Precio de Venta: ", margin_bottom="4px", weight="bold"),
 					rx.input(default_value=item[6], placeholder=item[6], step="0.1", name='price_venta', on_change=State.change_precio_venta()),
+				),
+				rx.cond(
+					item[0] != 0,
+					rx.hstack(
+						rx.text('Foto', margin_bottom="4px", weight="bold"),
+						rx.input(name='foto', type='file', accept='image/*'),
+					),
 				),
 				rx.hstack(
 					rx.button("Cancel", color_scheme="gray", variant="soft"),

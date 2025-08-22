@@ -1,6 +1,8 @@
 from .connect_db import mydb, cursor
 # from .connect_db import cursor
 from datetime import date
+from io import BytesIO
+import base64
 import hashlib
 import os
 
@@ -40,46 +42,27 @@ def graba_clave(id, clave):
 	mydb.commit()
 
 
-def items_select_all(letra: str):
-	# conn, cursor = connect()
-	q1 = f'SELECT A.id, CONCAT(A.name, "(", B.descrp, ")"), B.name, A.qty, A.price, A.price_venta, "foto" FROM mstocks_items A INNER JOIN depositos B ON B.id = A.category WHERE SUBSTR(A.name, 1, 1) = "{letra}" ORDER BY A.name'
-	cursor.execute(q1)
-	items = cursor.fetchall()
-	rit = []
-	for it in items:
-		file = '/imagenes/' + it[1] + '.jpg'
-		if (not os.path.exists('assets' + file)):
-			file = '/axm.jpg'
-		rit.append([it[0], it[1], it[2], it[3], it[4], it[5], file])
-	return(rit)
-
-def item_select_by_id(id: int):
-	# conn, cursor = connect()
-	q1 = f'SELECT CONCAT(name, " (", descrp, ")" FROM items WHERE id = {id}'
-	cursor.execute(q1)
-	name = cursor.fetchone()
-	return(name[0])
 
 def items_select_by_text(text: str):
 	# conn, cursor = connect()
-	q1 = f'SELECT A.id, CONCAT(A.name, " (", A.descrp, ")"), B.name, A.qty, A.price, A.price_venta, "foto" FROM mstocks_items A INNER JOIN mstocks_depositos B ON B.id = A.category WHERE A.name like "%{text}%" ORDER BY A.name'
+	q1 = f'SELECT id, CONCAT(name, " (", descrp, ")"), "Central", qty, price, price_venta FROM mstocks_items WHERE name like "%{text}%" ORDER BY name'
 	cursor.execute(q1)
 	items = cursor.fetchall()
 	rit = []
 	for it in items:
-		file = '/imagenes/' + it[1] + '.jpg'
-		if (not os.path.exists('assets' + file)):
-			file = '/axm.jpg'
-		rit.append([it[0], it[1], it[2], it[3], it[4], it[5], file])
+		q1 = f'SELECT * FROM mstocks_fotos WHERE id_usuario = {it[0]}'
+		cursor.execute(q1)
+		foto = cursor.fetchone()
+		if (foto is None):
+			foto = 'foto'
+		else:
+			buffer = BytesIO(foto[2])
+			encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8") 
+			foto = f"data:image/png;base64, {encoded_image}"
+		rit.append([it[0], it[1], it[2], it[3], it[4], it[5], foto])
 	return(rit)
+	# return(items)
 
-
-# def delete_stock_by_id(id: int):
-# 	conn, cursor = connect()
-# 	q1 = 'DELETE FROM items WHERE id = ' + str(id)
-# 	cursor.execute(q1)
-# 	conn.commit()
-# 	return stocks_select_all(id_producto)
 
 def item_ingegr(direccion: str, id: int, cantidad: int, id_usuario: int):
 	# conn, cursor = connect()
@@ -176,3 +159,16 @@ def insmod_usuario(data):
 		q1 = f'UPDATE mstocks_users SET username = "{username}", name = "{name}", email = "{email}", role = {rol} WHERE id = {id}'
 	cursor.execute(q1)
 	mydb.commit()
+
+
+def grabar_foto(data):
+	id_usuario = data['id']
+	foto = data['foto']
+	q1 = f'DELETE FROM mstocks_fotos WHERE id_usuario = {id_usuario}'
+	cursor.execute(q1)
+
+	q1 = f'INSERT INTO mstocks_fotos (id, id_usuario, foto) VALUES (0, %s, %s)'
+	cursor.execute(q1, (id_usuario, foto))
+
+	mydb.commit()
+
