@@ -50,18 +50,18 @@ def items_select_by_text(text: str):
 	items = cursor.fetchall()
 	rit = []
 	for it in items:
-		q1 = f'SELECT * FROM mstocks_fotos WHERE id_usuario = {it[0]}'
+		q1 = f'SELECT * FROM mstocks_imagenes WHERE id_item = {it[0]}'
 		cursor.execute(q1)
 		foto = cursor.fetchone()
 		if (foto is None):
-			foto = 'foto'
+			imagen = 'axm'
 		else:
-			buffer = BytesIO(foto[2])
+			buffer = BytesIO(foto[1])
 			encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8") 
-			foto = f"data:image/png;base64, {encoded_image}"
-		rit.append([it[0], it[1], it[2], it[3], it[4], it[5], foto])
+			imagen = f"data:image/png;base64, {encoded_image}"
+		rit.append([it[0], it[1], it[2], it[3], it[4], it[5], imagen])
 	return(rit)
-	# return(items)
+
 
 
 def item_ingegr(direccion: str, id: int, cantidad: int, id_usuario: int):
@@ -117,13 +117,26 @@ def get_item(id):
 	q1 = f'SELECT * FROM mstocks_items WHERE id = {id}'
 	cursor.execute(q1)
 	item = cursor.fetchone()
-	return(item)
+	q1 = f'SELECT * FROM mstocks_imagenes WHERE id_item = {id}'
+	cursor.execute(q1)
+	foto = cursor.fetchone()
+	if (foto is None):
+		imagen = 'axm'
+	else:
+		buffer = BytesIO(foto[1])
+		encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8") 
+		imagen = f"data:image/png;base64, {encoded_image}"
+	res = (item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], imagen)
+	return(res)
 
 def insmod_item(data, id_usuario):
 	id = int(data['id'])
-	q1 = f'SELECT price_venta from mstocks_items WHERE id = {id}'
-	cursor.execute(q1)
-	old_price_venta = float(cursor.fetchone()[0])
+	if (id != 0):
+		q1 = f'SELECT price_venta from mstocks_items WHERE id = {id}'
+		cursor.execute(q1)
+		old_price_venta = float(cursor.fetchone()[0])
+	else:
+		old_price_venta = 0.
 
 	name = data['name']
 	descrp = data['descrp']
@@ -132,13 +145,27 @@ def insmod_item(data, id_usuario):
 	if (id == 0):
 		fecha = date.today()
 		q1 = f'INSERT INTO mstocks_items (id, name, descrp, category, qty, price, price_venta, date_added) VALUES (0,"{name}", "{descrp}", 3, 0, {price}, {price_venta}, "{fecha}")'
+		cursor.execute(q1)
+		q1 = f'SELECT LAST_INSERT_ID()'
+		cursor.execute(q1)
+		id_item = cursor.fetchone()[0]
 	else:
 		q1 = f'UPDATE mstocks_items SET name = "{name}", descrp = "{descrp}", price = {price}, price_venta = {price_venta} WHERE id = {id}'
-	cursor.execute(q1)
+		id_item = id
+		cursor.execute(q1)
 
 	fecha = date.today()
 	q1 = f'INSERT INTO mstocks_logs (id, type, item, fromqty, toqty, fromprice, toprice, date_added, user) VALUES (0, 3, {id}, 0, 0, {old_price_venta}, {price_venta}, "{fecha}", {id_usuario})'
 	cursor.execute(q1)
+
+	if (len(data['imagen']) > 0):
+		imagen = data['imagen']
+		q1 = f'DELETE FROM mstocks_imagenes WHERE id_item = {id_item}'
+		cursor.execute(q1)
+
+		q1 = f'INSERT INTO mstocks_imagenes (id_item, imagen) VALUES (%s, %s)'
+		cursor.execute(q1, (id_item, imagen))
+
 	# conn.commit()
 	mydb.commit()
 
@@ -160,15 +187,4 @@ def insmod_usuario(data):
 	cursor.execute(q1)
 	mydb.commit()
 
-
-def grabar_foto(data):
-	id_usuario = data['id']
-	foto = data['foto']
-	q1 = f'DELETE FROM mstocks_fotos WHERE id_usuario = {id_usuario}'
-	cursor.execute(q1)
-
-	q1 = f'INSERT INTO mstocks_fotos (id, id_usuario, foto) VALUES (0, %s, %s)'
-	cursor.execute(q1, (id_usuario, foto))
-
-	mydb.commit()
 

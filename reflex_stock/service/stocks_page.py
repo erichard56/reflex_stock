@@ -2,7 +2,7 @@ import reflex as rx
 from .stocks_repository import item_ingegr
 from .stocks_repository import items_select_by_text
 from .stocks_repository import chk_usuario, get_logs, get_item, insmod_item, insmod_usuario
-from .stocks_repository import get_usuarios, get_usuario, graba_clave, grabar_foto
+from .stocks_repository import get_usuarios, get_usuario, graba_clave
 
 from .logs import fnc_logs
 
@@ -82,9 +82,6 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def handle_insmod_item(self, form_data: dict):
 		async with self:
-			if (len(form_data['foto']) > 0):
-				grabar_foto(form_data)
-			
 			insmod_item(form_data, self.id_usuario)
 			self.productos = items_select_by_text(self.busq)
 			self.opc = 'prods'
@@ -402,12 +399,10 @@ def row_productos(producto) -> rx.Component:
 		rx.table.cell(rx.text(producto[4])),
 		rx.table.cell(rx.text(producto[5])),
 		rx.cond(
-			producto[6] == 'foto',
+			producto[6] == 'imagen',
 			rx.image(src='/axm.jpg', width='50%'),
             rx.image(src=producto[6], width="50px", height="50px"),
-			# rx.text('-', producto[6], '-'),
 		),
-		# rx.table.cell(rx.text(producto[6])),
 		rx.table.cell(
 			rx.hstack(
 				rx.button(rx.icon("plus", on_click = State.incrementar(producto[0]))),
@@ -472,11 +467,15 @@ def fnc_insmod_item(item: list = None) -> rx.Component:
 					rx.text("Precio de Venta: ", margin_bottom="4px", weight="bold"),
 					rx.input(default_value=item[6], placeholder=item[6], step="0.1", name='price_venta', on_change=State.change_precio_venta()),
 				),
-				rx.cond(
-					item[0] != 0,
+				rx.hstack(
+					rx.text('Imagen', margin_bottom="4px", weight="bold"),
+					rx.cond(
+						item[8] == 'imagen',
+						rx.image(src='/axm.jpg', width='50%'),
+						rx.image(item[8], width='20%'),
+					),
 					rx.hstack(
-						rx.text('Foto', margin_bottom="4px", weight="bold"),
-						rx.input(name='foto', type='file', accept='image/*'),
+						rx.input(name='imagen', type='file', accept='image/*'),
 					),
 				),
 				rx.hstack(
