@@ -2,7 +2,7 @@ import reflex as rx
 from .stocks_repository import item_ingegr
 from .stocks_repository import items_select_by_text
 from .stocks_repository import chk_usuario, get_logs, get_item, insmod_item, insmod_usuario
-from .stocks_repository import get_usuarios, get_usuario, graba_clave
+from .stocks_repository import get_usuarios, get_usuario, graba_clave, borrar_item
 
 from .logs import fnc_logs
 
@@ -43,6 +43,7 @@ class State(rx.State):
 	verif: str
 	email: str
 	rol: str
+	imagen: str
  
 
 	@rx.event()
@@ -90,6 +91,13 @@ class State(rx.State):
 			await self.handle_notify()
 
 	@rx.event(background=True)
+	async def evt_borrar_item(self, id_item):
+		async with self:
+			borrar_item(id_item)
+			self.productos = items_select_by_text(self.busq)
+
+
+	@rx.event(background=True)
 	async def handle_insmod_user(self, form_data: dict):
 		async with self:
 			if (int(form_data['id']) == 0):
@@ -118,8 +126,8 @@ class State(rx.State):
 	@rx.event(background=True)
 	async def evt_logs(self, id):
 		async with self:
-			self.producto, self.logs = get_logs(id)
-			fnc_logs(self.producto, self.logs)
+			self.producto, self.imagen, self.logs = get_logs(id)
+			fnc_logs(self.producto, self.imagen, self.logs)
 			self.opc = 'logs'
 
 	@rx.event(background=True)
@@ -202,13 +210,16 @@ class State(rx.State):
 	async def get_productos(self):
 		async with self:
 			self.error = ''
-			self.productos = items_select_by_text(self.busq)
-			if (len(self.productos) > 0):
-				self.producto = self.productos[0][1]
-				self.opc = 'prods'
-				# self.letra = self.producto[0][0]
+			if (self.busq != ''):
+				self.productos = items_select_by_text(self.busq)
+				if (len(self.productos) > 0):
+					self.producto = self.productos[0][1]
+					self.opc = 'prods'
+					# self.letra = self.producto[0][0]
+				else:
+					self.error = 'No existen productos con esa busqueda'
 			else:
-				self.error = 'No existen productos con esa busqueda'
+				self.error = 'Debe ingresar un item en el campo Buscar'
 
 		if (self.error != ''):
 			await self.handleNotify()
@@ -320,7 +331,7 @@ def stocks_page() -> rx.Component:
 						rx.match(
 							State.opc,
 							('prods', table_producto(State.busq)),
-							('logs', fnc_logs(State.producto, State.logs)),
+							('logs', fnc_logs(State.producto, State.imagen, State.logs)),
 							('prec', fnc_insmod_item(State.item)),
 							('insmodproducto', fnc_insmod_item(State.item)),
 							('users', fnc_usuarios(State.usuarios)),
@@ -372,11 +383,11 @@ def table_producto(busq) -> rx.Component:
 		rx.table.root(
 			rx.table.header( 
 				rx.table.row(
-					rx.table.column_header_cell('Producto', width='30%'),
-					rx.table.column_header_cell('Deposito', width='20%'),
+					rx.table.column_header_cell('Producto', width='40%'),
+					# rx.table.column_header_cell('Deposito', width='20%'),
 					rx.table.column_header_cell('Stock', width='10%'),
 					rx.table.column_header_cell('Precio', width='10%'),
-					rx.table.column_header_cell('Precio Vta', width='10%'),
+					rx.table.column_header_cell('Precio de Venta', width='10%'),
 					rx.table.column_header_cell('Imagen', width='10%'),
 					rx.table.column_header_cell('Acciones', width='10%')
 				),			
@@ -394,12 +405,12 @@ def table_producto(busq) -> rx.Component:
 def row_productos(producto) -> rx.Component:
 	return rx.table.row(
 		rx.table.cell(rx.text(producto[1])),
-		rx.table.cell(rx.text(producto[2])),
+		# rx.table.cell(rx.text(producto[2])),
 		rx.table.cell(rx.text(producto[3])),
 		rx.table.cell(rx.text(producto[4])),
 		rx.table.cell(rx.text(producto[5])),
 		rx.cond(
-			producto[6] == 'imagen',
+			producto[6] == 'axm',
 			rx.image(src='/axm.jpg', width='50%'),
             rx.image(src=producto[6], width="50px", height="50px"),
 		),
@@ -410,6 +421,7 @@ def row_productos(producto) -> rx.Component:
 				fnc_ingegr('in', producto[0]),
 				fnc_ingegr('out', producto[0]),
 				rx.button(rx.icon('pencil'), on_click=State.evt_precio(producto[0])),
+				rx.button(rx.icon('eraser'), on_click=State.evt_borrar_item(producto[0])),
 				rx.button('Logs', on_click=State.evt_logs(producto[0])),
 			)
 		),
@@ -470,7 +482,7 @@ def fnc_insmod_item(item: list = None) -> rx.Component:
 				rx.hstack(
 					rx.text('Imagen', margin_bottom="4px", weight="bold"),
 					rx.cond(
-						item[8] == 'imagen',
+						item[8] == 'axm',
 						rx.image(src='/axm.jpg', width='50%'),
 						rx.image(item[8], width='20%'),
 					),

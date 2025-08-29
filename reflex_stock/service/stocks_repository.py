@@ -90,6 +90,17 @@ def get_logs(id: int):
 	cursor.execute(q1)
 	name = cursor.fetchone()[0]
 
+	q1 = f'SELECT * FROM mstocks_imagenes WHERE id_item = {id}'
+	cursor.execute(q1)
+	foto = cursor.fetchone()
+	if (foto is None):
+		imagen = 'axm'
+	else:
+		buffer = BytesIO(foto[1])
+		encoded_image = base64.b64encode(buffer.getvalue()).decode("utf-8") 
+		imagen = f"data:image/png;base64, {encoded_image}"
+
+
 	q1 = f'SELECT type, item, fromqty, toqty, fromprice, toprice, date_added, user FROM mstocks_logs WHERE item = {id} ORDER BY date_added DESC, id DESC'
 	cursor.execute(q1)
 	logs = cursor.fetchall()
@@ -111,7 +122,7 @@ def get_logs(id: int):
 		cursor.execute(q1)
 		usuario = cursor.fetchone()
 		res.append([accion, desde, hasta, usuario, log[6]])
-	return(name, res)
+	return(name, imagen, res)
 
 def get_item(id):
 	q1 = f'SELECT * FROM mstocks_items WHERE id = {id}'
@@ -188,3 +199,10 @@ def insmod_usuario(data):
 	mydb.commit()
 
 
+def borrar_item(id: int):
+	q1 = f'DELETE FROM mstocks_logs WHERE item = {id}'
+	cursor.execute(q1)
+	q1 = f'DELETE FROM mstocks_imagenes WHERE id_item = {id}'
+	cursor.execute(q1)
+	q1 = f'DELETE FROM mstocks_items WHERE id = {id}'
+	mydb.commit()

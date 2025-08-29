@@ -9,11 +9,18 @@ def fnc_logs_one(log):
 		rx.table.cell(rx.text(log[4])),
 	)
 
-def fnc_logs(producto, logs) -> rx.Component:
+def fnc_logs(producto, imagen, logs) -> rx.Component:
 	return rx.box(
 		rx.flex(
 			rx.card(
-				rx.heading(producto),
+				rx.vstack(
+					rx.heading(producto),
+					rx.cond(
+						imagen != 'axm',
+						rx.image(imagen, width='300px', height='auto'),
+						rx.image('/axm.jpg')
+					)
+				),
 			),
 			rx.card(
 				rx.table.root(
