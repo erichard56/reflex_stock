@@ -2,7 +2,7 @@ import reflex as rx
 from .stocks_repository import item_ingegr
 from .stocks_repository import items_select_by_text
 from .stocks_repository import chk_usuario, get_logs, get_item, insmod_item, insmod_usuario
-from .stocks_repository import get_usuarios, get_usuario, graba_clave, borrar_item
+from .stocks_repository import get_usuarios, get_usuario, graba_clave, borrar_item, get_item_cant
 
 from .logs import fnc_logs
 
@@ -127,7 +127,8 @@ class State(rx.State):
 	async def evt_logs(self, id):
 		async with self:
 			self.producto, self.imagen, self.logs = get_logs(id)
-			fnc_logs(self.producto, self.imagen, self.logs)
+			if (len(self.logs) > 0):
+				fnc_logs(self.producto, self.imagen, self.logs)
 			self.opc = 'logs'
 
 	@rx.event(background=True)
@@ -137,15 +138,21 @@ class State(rx.State):
 			self.opc = 'prec'
 
 	@rx.event(background=True)
-	async def decrementar(self, id_producto):
+	async def decrementar(self, id_item):
 		async with self:
-			item_ingegr('out', id_producto, 1, self.id_usuario)
-			self.productos = items_select_by_text(self.busq)
+			qty = get_item_cant(id_item)
+			if (qty > 0):
+				item_ingegr('out', id_item, 1, self.id_usuario)
+				self.productos = items_select_by_text(self.busq)
+			else:
+				self.error = 'Cantidad insuficiente'
+		if (self.error != ''):
+			await self.handle_notify()
 
 	@rx.event(background=True)
-	async def incrementar(self, id_producto):
+	async def incrementar(self, id_item):
 		async with self:
-			item_ingegr('in', id_producto, 1, self.id_usuario)
+			item_ingegr('in', id_item, 1, self.id_usuario)
 			self.productos = items_select_by_text(self.busq)
 
 	@rx.event()
@@ -193,10 +200,14 @@ class State(rx.State):
 		async with self:
 			cantidad = chkCantidad(self.cantidad)
 			if (type(cantidad) == int):
-				item_ingegr(direccion, id_producto, cantidad, self.id_usuario)
-				self.productos = items_select_by_text(self.busq)
-				self.producto = self.productos[0][1]
-				self.id_producto = self.productos[0][0]
+				qty = get_item_cant(id_producto)
+				if ((direccion == 'in') or (direccion == 'out' and qty >= cantidad)):
+					item_ingegr(direccion, id_producto, cantidad, self.id_usuario)
+					self.productos = items_select_by_text(self.busq)
+					self.producto = self.productos[0][1]
+					self.id_producto = self.productos[0][0]
+				else:
+					self.error = 'Cantidad insuficiente'
 			else:
 				self.error = cantidad
 
@@ -421,7 +432,8 @@ def row_productos(producto) -> rx.Component:
 				fnc_ingegr('in', producto[0]),
 				fnc_ingegr('out', producto[0]),
 				rx.button(rx.icon('pencil'), on_click=State.evt_precio(producto[0])),
-				rx.button(rx.icon('eraser'), on_click=State.evt_borrar_item(producto[0])),
+				fnc_borrar_item(producto[0]),
+				# rx.button(rx.icon('eraser'), on_click=State.evt_borrar_item(producto[0])),
 				rx.button('Logs', on_click=State.evt_logs(producto[0])),
 			)
 		),
@@ -452,6 +464,23 @@ def fnc_ingegr(direccion, id) -> rx.Component:
 			),
 		)
 	)
+
+
+def fnc_borrar_item(id) -> rx.Component:
+	return rx.box(
+		rx.dialog.root(
+			rx.dialog.trigger(rx.button(rx.icon('eraser'))),
+			rx.dialog.content(
+				rx.hstack(
+					rx.dialog.title(rx.text("Borrado de un Item")),
+					rx.dialog.close(rx.button("Cancel", color_scheme="gray", variant="soft")),
+					rx.dialog.close(rx.button("Confirmar"), on_click=State.evt_borrar_item(id)),
+				),
+				spacing="3",
+			),
+		)
+	),
+
 
 def fnc_insmod_item(item: list = None) -> rx.Component:
 	return rx.card(

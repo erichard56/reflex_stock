@@ -140,6 +140,14 @@ def get_item(id):
 	res = (item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], imagen)
 	return(res)
 
+
+def get_item_cant(id):
+	q1 = f'SELECT qty FROM mstocks_items WHERE id = {id}'
+	cursor.execute(q1)
+	qty = cursor.fetchone()[0]
+	return(int(qty))
+
+
 def insmod_item(data, id_usuario):
 	id = int(data['id'])
 	if (id != 0):
@@ -202,7 +210,8 @@ def insmod_usuario(data):
 def borrar_item(id: int):
 	q1 = f'DELETE FROM mstocks_logs WHERE item = {id}'
 	cursor.execute(q1)
-	q1 = f'DELETE FROM mstocks_imagenes WHERE id_item = {id}'
-	cursor.execute(q1)
+	# q1 = f'DELETE FROM mstocks_imagenes WHERE id_item = {id}'
+	# cursor.execute(q1)
 	q1 = f'DELETE FROM mstocks_items WHERE id = {id}'
+	cursor.execute(q1)
 	mydb.commit()
