@@ -299,34 +299,34 @@ def stocks_page() -> rx.Component:
 									)
 								),
 								rx.hstack(
-									rx.card(
-										rx.hstack(
-											rx.input(placeholder = 'Producto??', on_change = State.buscar_on_change),
-											rx.button('Buscar', on_click = State.get_productos),
-											rx.cond (
-												State.role == 1,
-												rx.box(
-													rx.button('Nuevo', on_click=State.evt_nuevo_item()),
+									rx.form(
+										rx.card(
+											rx.hstack(
+												rx.input(placeholder = 'Producto??', on_change = State.buscar_on_change),
+												rx.button('Buscar', on_click = State.get_productos),
+												rx.cond (
+													State.role == 1,
+													rx.box(
+														rx.button('Nuevo', on_click=State.evt_nuevo_item()),
+													),
 												),
 											),
 										),
 									),
-									# rx.card(
-										rx.hstack(
-											rx.cond (
-												State.role == 1,
-												rx.card(
-													rx.hstack(
-														rx.button('Usuarios', on_click=State.evt_usuarios()),
-														rx.button('Nuevo', on_click=State.evt_nuevo_usuario()),
-													),
+									rx.hstack(
+										rx.cond (
+											State.role == 1,
+											rx.card(
+												rx.hstack(
+													rx.button('Usuarios', on_click=State.evt_usuarios()),
+													rx.button('Nuevo', on_click=State.evt_nuevo_usuario()),
 												),
 											),
-											rx.card(
-												rx.button('Salir', on_click=State.evt_salir()),
-											),
-										)
-									# )
+										),
+										rx.card(
+											rx.button('Salir', on_click=State.evt_salir()),
+										),
+									)
 								),
 							),
 						),
