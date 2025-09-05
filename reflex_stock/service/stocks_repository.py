@@ -151,30 +151,37 @@ def get_item_cant(id):
 def insmod_item(data, id_usuario):
 	id = int(data['id'])
 	if (id != 0):
-		q1 = f'SELECT price_venta from mstocks_items WHERE id = {id}'
+		q1 = f'SELECT qty, price_venta from mstocks_items WHERE id = {id}'
 		cursor.execute(q1)
-		old_price_venta = float(cursor.fetchone()[0])
+		res = cursor.fetchall()
+		old_cantidad = int(res[0])
+		old_price_venta = float(res[1])
 	else:
+		old_cantidad = 0
 		old_price_venta = 0.
 
 	name = data['name']
 	descrp = data['descrp']
+	cantidad = data['cantidad']
 	price = float(data['price'])
 	price_venta = float(data['price_venta'])
 	if (id == 0):
 		fecha = date.today()
-		q1 = f'INSERT INTO mstocks_items (id, name, descrp, category, qty, price, price_venta, date_added) VALUES (0,"{name}", "{descrp}", 3, 0, {price}, {price_venta}, "{fecha}")'
+		q1 = f'INSERT INTO mstocks_items (id, name, descrp, category, qty, price, price_venta, date_added) VALUES (0,"{name}", "{descrp}", 3, {cantidad}, {price}, {price_venta}, "{fecha}")'
 		cursor.execute(q1)
 		q1 = f'SELECT LAST_INSERT_ID()'
 		cursor.execute(q1)
 		id_item = cursor.fetchone()[0]
 	else:
-		q1 = f'UPDATE mstocks_items SET name = "{name}", descrp = "{descrp}", price = {price}, price_venta = {price_venta} WHERE id = {id}'
+		q1 = f'UPDATE mstocks_items SET name = "{name}", descrp = "{descrp}", cantidad={cantidad}, price = {price}, price_venta = {price_venta} WHERE id = {id}'
 		id_item = id
 		cursor.execute(q1)
 
 	fecha = date.today()
-	q1 = f'INSERT INTO mstocks_logs (id, type, item, fromqty, toqty, fromprice, toprice, date_added, user) VALUES (0, 3, {id}, 0, 0, {old_price_venta}, {price_venta}, "{fecha}", {id_usuario})'
+	q1 = f'INSERT INTO mstocks_logs (id, type, item, fromqty, toqty, fromprice, toprice, date_added, user) VALUES (0, 1, {id_item}, {old_cantidad}, {cantidad}, 0, 0, "{fecha}", {id_usuario})'
+	cursor.execute(q1)
+
+	q1 = f'INSERT INTO mstocks_logs (id, type, item, fromqty, toqty, fromprice, toprice, date_added, user) VALUES (0, 3, {id_item}, 0, 0, {old_price_venta}, {price_venta}, "{fecha}", {id_usuario})'
 	cursor.execute(q1)
 
 	if (len(data['imagen']) > 0):

@@ -8,3 +8,6 @@ Otros/*
 venv
 .db_reflex
 output
+*.zip
+backend/
+frontend/

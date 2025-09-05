@@ -501,6 +501,10 @@ def fnc_insmod_item(item: list = None) -> rx.Component:
 					rx.input(default_value=item[2], placeholder=item[2], name='descrp', on_change=State.change_descr()),
 				),
 				rx.hstack(
+					rx.text("Cantidad: ", margin_bottom="4px", weight="bold"),
+					rx.input(default_value=item[4], placeholder=item[4], name='cantidad', on_change=State.change_cantidad()),
+				),
+				rx.hstack(
 					rx.text("Precio: ", margin_bottom="4px", weight="bold"),
 					rx.input(default_value=item[5], placeholder=item[5], step="0.1", name='price', on_change=State.change_precio()),
 				),

@@ -6,5 +6,6 @@ config = rx.Config(
         "reflex.plugins.sitemap.SitemapPlugin",
         # Add other plugins to disable here if needed
     ],
-    db_url="sqlite:///stock.db"
+    db_url="sqlite:///stock.db",
+    # api_url="http://localhost:8000",
 )
